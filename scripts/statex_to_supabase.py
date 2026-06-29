@@ -149,28 +149,24 @@ def upsert_rows(rows):
 def main():
     file_url = fetch_statex_csv()
     csv_path = download_csv(file_url)
-
     rows = []
     with open(csv_path, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
+        reader = csv.DictReader(fh)
+        print(f"CSV headers: {reader.fieldnames}")  # ← add this
+        for row in reader:
             creative_id = (row.get("creative_id") or "").strip()
             link        = (row.get("creative_link") or "").strip().replace("\n", "")
-
             if not creative_id:
                 continue
-
             image_url = upload_image(creative_id, link) if link else None
-
             rows.append({
                 "id":            creative_id,
                 "brand":         row.get("brand", "").strip(),
                 "link_to_image": link,
                 "image_url":     image_url,
             })
-
     print(f"\nUpserting {len(rows)} rows …")
     upsert_rows(rows)
     print("✓ Done.")
-
 if __name__ == "__main__":
     main()
