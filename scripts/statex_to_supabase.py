@@ -150,11 +150,11 @@ def main():
     file_url = fetch_statex_csv()
     csv_path = download_csv(file_url)
     rows = []
-    with open(csv_path, newline="", encoding="utf-8") as fh:
+    with open(csv_path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         print(f"CSV headers: {reader.fieldnames}")  # ← add this
         for row in reader:
-            creative_id = (row.get("creative_id") or "").strip()
+            creative_id = (row.get("creative_id") or row.get('"creative_id"') or "").strip().strip('"')
             link        = (row.get("creative_link") or "").strip().replace("\n", "")
             if not creative_id:
                 continue
