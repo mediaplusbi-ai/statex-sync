@@ -99,18 +99,6 @@ def upload_image(creative_id, source_url):
     ext = Path(source_url.split("?")[0]).suffix or ".jpg"
     storage_path = f"{creative_id}{ext}"
 
-    # Check if already exists
-    check_url = (f"{SUPABASE_URL}/storage/v1/object/info/public/"
-                 f"{BUCKET}/{storage_path}")
-    try:
-        http("GET", check_url, supabase_headers())
-        # Already exists — return public URL
-        return (f"{SUPABASE_URL}/storage/v1/object/public/"
-                f"{BUCKET}/{storage_path}")
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            raise
-
     # Download from Statex
     try:
         img_bytes = http("GET", source_url, {}, raw=True)
@@ -118,11 +106,14 @@ def upload_image(creative_id, source_url):
         print(f"  ⚠ Could not fetch image {source_url}: {exc}")
         return None
 
-    # Upload to Supabase Storage
+    # Upload to Supabase Storage (upsert — overwrites if exists)
     upload_url = (f"{SUPABASE_URL}/storage/v1/object/"
                   f"{BUCKET}/{storage_path}")
     content_type = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
-    headers = supabase_headers({"Content-Type": content_type})
+    headers = supabase_headers({
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    })
     http("POST", upload_url, headers, body=img_bytes)
 
     public_url = (f"{SUPABASE_URL}/storage/v1/object/public/"
@@ -149,24 +140,30 @@ def upsert_rows(rows):
 def main():
     file_url = fetch_statex_csv()
     csv_path = download_csv(file_url)
+
     rows = []
     with open(csv_path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
-        print(f"CSV headers: {reader.fieldnames}")  # ← add this
+        print(f"CSV headers: {reader.fieldnames}")
         for row in reader:
             creative_id = (row.get("creative_id") or row.get('"creative_id"') or "").strip().strip('"')
             link        = (row.get("creative_link") or "").strip().replace("\n", "")
+
             if not creative_id:
                 continue
+
             image_url = upload_image(creative_id, link) if link else None
+
             rows.append({
                 "id":            creative_id,
                 "brand":         row.get("brand", "").strip(),
                 "link_to_image": link,
                 "image_url":     image_url,
             })
+
     print(f"\nUpserting {len(rows)} rows …")
     upsert_rows(rows)
     print("✓ Done.")
+
 if __name__ == "__main__":
     main()
