@@ -7,7 +7,7 @@ statex_to_supabase.py
 4. Upserts rows into the Supabase table
 """
 
-import os, re, csv, time, json, urllib.request, urllib.error
+import os, re, csv, time, json, urllib.request, urllib.error, gzip
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -48,9 +48,9 @@ def http(method, url, headers, body=None, raw=False):
 # ── Step 1: Export from Statex ────────────────────────────────────────────────
 
 def fetch_statex_csv():
-    today     = date.today()
-    start     = str(today - timedelta(days=7))
-    end       = str(today)
+    today = date.today()
+    start = str(today - timedelta(days=7))
+    end   = str(today)
 
     payload = {
         "format": "csv",
@@ -64,7 +64,6 @@ def fetch_statex_csv():
     export_id = result["id"]
     print(f"  id: {export_id}")
 
-    # Poll
     print("  Polling", end="", flush=True)
     while True:
         rec = http("GET", f"{BASE_URL}/export/{export_id}", statex_headers())
@@ -75,16 +74,15 @@ def fetch_statex_csv():
         if rec["status"] == "error":
             raise RuntimeError("Statex export failed")
         time.sleep(5)
-        
+
 def download_csv(file_url):
     print("Downloading CSV …")
     raw = http("GET", file_url, {}, raw=True)
-    
+
     # Decompress if gzip encoded
     if raw[:2] == b'\x1f\x8b':
-        import gzip
         raw = gzip.decompress(raw)
-    
+
     path = Path("/tmp/statex_export.csv")
     path.write_bytes(raw)
     return path
@@ -140,7 +138,6 @@ def upsert_rows(rows):
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
     })
-    # Upsert in batches of 500
     batch_size = 500
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i+batch_size]
@@ -156,16 +153,19 @@ def main():
     rows = []
     with open(csv_path, newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            creative_id  = (row.get("creative_id") or "").strip()
-            link         = (row.get("creative_link") or "").strip().replace("\n","")
+            creative_id = (row.get("creative_id") or "").strip()
+            link        = (row.get("creative_link") or "").strip().replace("\n", "")
 
-            image_url = upload_image(creative_id, link) if creative_id and link else None
+            if not creative_id:
+                continue
+
+            image_url = upload_image(creative_id, link) if link else None
 
             rows.append({
+                "id":            creative_id,
                 "brand":         row.get("brand", "").strip(),
                 "link_to_image": link,
                 "image_url":     image_url,
-                # add other columns from your table here
             })
 
     print(f"\nUpserting {len(rows)} rows …")
