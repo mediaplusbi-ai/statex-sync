@@ -21,12 +21,9 @@ TABLE          = "statex_rows"
 BASE_URL       = "https://backend.statexmonitoring.com/api/v1"
 
 COLUMNS = [
-    "creative_id", "creative_type", "creative_subtype", "creative_content",
-    "creative_link", "landing_page", "height", "width", "duration", "language",
-    "device", "zone", "buying_mode", "network", "agency", "producer", "distributor",
-    "site_name", "site_url", "site_category", "country", "date", "reasons",
-    "impressions", "budget", "creatives", "brand", "sector",
-    "product_category", "product_name",
+    "creative_id",
+    "creative_link",
+    "brand",
 ]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
