@@ -2,22 +2,19 @@
 statex_to_supabase.py
 ─────────────────────
 1. Calls the Statex Export API
-2. Downloads each creative image
-3. Uploads to Supabase Storage
-4. Upserts rows into the Supabase table
+2. Upserts rows into the Supabase table
+   (image uploads skipped — link_to_image stored as-is)
 """
 
-import os, re, csv, time, json, urllib.request, urllib.error, gzip
+import os, csv, time, json, urllib.request, urllib.error, gzip
 from datetime import date, timedelta
 from pathlib import Path
 
 # ── Config from environment variables ────────────────────────────────────────
 STATEX_TOKEN   = os.environ["STATEX_TOKEN"]
-SUPABASE_URL   = os.environ["SUPABASE_URL"]          # https://xxxx.supabase.co
-SUPABASE_KEY   = os.environ["SUPABASE_SERVICE_KEY"]  # service_role key
-BUCKET         = "statex_outdoor_adview"
+SUPABASE_URL   = os.environ["SUPABASE_URL"]
+SUPABASE_KEY   = os.environ["SUPABASE_SERVICE_KEY"]
 TABLE          = "statex_rows"
-
 BASE_URL       = "https://backend.statexmonitoring.com/api/v1"
 
 COLUMNS = [
@@ -78,50 +75,13 @@ def fetch_statex_csv():
 def download_csv(file_url):
     print("Downloading CSV …")
     raw = http("GET", file_url, {}, raw=True)
-
-    # Decompress if gzip encoded
     if raw[:2] == b'\x1f\x8b':
         raw = gzip.decompress(raw)
-
     path = Path("/tmp/statex_export.csv")
     path.write_bytes(raw)
     return path
 
-# ── Step 2: Upload image to Supabase Storage ─────────────────────────────────
-
-def upload_image(creative_id, source_url):
-    """Downloads image from Statex, uploads to Storage, returns public URL."""
-    source_url = source_url.strip()
-    if not source_url:
-        return None
-
-    # Derive extension
-    ext = Path(source_url.split("?")[0]).suffix or ".jpg"
-    storage_path = f"{creative_id}{ext}"
-
-    # Download from Statex
-    try:
-        img_bytes = http("GET", source_url, {}, raw=True)
-    except Exception as exc:
-        print(f"  ⚠ Could not fetch image {source_url}: {exc}")
-        return None
-
-    # Upload to Supabase Storage (upsert — overwrites if exists)
-    upload_url = (f"{SUPABASE_URL}/storage/v1/object/"
-                  f"{BUCKET}/{storage_path}")
-    content_type = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
-    headers = supabase_headers({
-        "Content-Type": content_type,
-        "x-upsert": "true",
-    })
-    http("POST", upload_url, headers, body=img_bytes)
-
-    public_url = (f"{SUPABASE_URL}/storage/v1/object/public/"
-                  f"{BUCKET}/{storage_path}")
-    print(f"  ↑ Uploaded {storage_path}")
-    return public_url
-
-# ── Step 3: Upsert rows into Supabase ────────────────────────────────────────
+# ── Step 2: Upsert rows into Supabase ────────────────────────────────────────
 
 def upsert_rows(rows):
     url = f"{SUPABASE_URL}/rest/v1/{TABLE}"
@@ -152,13 +112,11 @@ def main():
             if not creative_id:
                 continue
 
-            image_url = upload_image(creative_id, link) if link else None
-
             rows.append({
                 "id":            creative_id,
                 "brand":         row.get("brand", "").strip(),
                 "link_to_image": link,
-                "image_url":     image_url,
+                "image_url":     None,  # skipped for now
             })
 
     print(f"\nUpserting {len(rows)} rows …")
