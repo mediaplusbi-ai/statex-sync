@@ -75,10 +75,16 @@ def fetch_statex_csv():
         if rec["status"] == "error":
             raise RuntimeError("Statex export failed")
         time.sleep(5)
-
+        
 def download_csv(file_url):
     print("Downloading CSV …")
     raw = http("GET", file_url, {}, raw=True)
+    
+    # Decompress if gzip encoded
+    if raw[:2] == b'\x1f\x8b':
+        import gzip
+        raw = gzip.decompress(raw)
+    
     path = Path("/tmp/statex_export.csv")
     path.write_bytes(raw)
     return path
