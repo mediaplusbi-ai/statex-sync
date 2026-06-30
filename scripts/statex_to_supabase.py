@@ -14,7 +14,7 @@ from pathlib import Path
 STATEX_TOKEN   = os.environ["STATEX_TOKEN"]
 SUPABASE_URL   = os.environ["SUPABASE_URL"]
 SUPABASE_KEY   = os.environ["SUPABASE_SERVICE_KEY"]
-TABLE          = "statex_rows"
+TABLE          = "statex"
 BASE_URL       = "https://backend.statexmonitoring.com/api/v1"
 
 COLUMNS = [
