@@ -39,8 +39,13 @@ def http(method, url, headers, body=None, raw=False):
             else body if isinstance(body, bytes)
             else None)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        return r.read() if raw else json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.read() if raw else json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        print(f"  ✗ HTTP {e.code} error body: {error_body}")
+        raise
 
 # ── Step 1: Export from Statex ────────────────────────────────────────────────
 
