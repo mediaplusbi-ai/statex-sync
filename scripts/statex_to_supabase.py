@@ -44,7 +44,12 @@ def http(method, url, headers, body=None, raw=False):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req) as r:
-            return r.read() if raw else json.loads(r.read().decode())
+            content = r.read()
+            if raw:
+                return content
+            if not content:
+                return {}
+            return json.loads(content.decode())
     except urllib.error.HTTPError as e:
         error_body = e.read().decode()
         print(f"  ✗ HTTP {e.code} error body: {error_body}")
