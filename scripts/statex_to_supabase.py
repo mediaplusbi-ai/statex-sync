@@ -35,9 +35,12 @@ def supabase_headers(extra={}):
     return h
 
 def http(method, url, headers, body=None, raw=False):
-    data = (json.dumps(body).encode() if isinstance(body, dict)
-            else body if isinstance(body, bytes)
-            else None)
+    data = None
+    if isinstance(body, (dict, list)):
+        data = json.dumps(body).encode()
+    elif isinstance(body, bytes):
+        data = body
+
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req) as r:
