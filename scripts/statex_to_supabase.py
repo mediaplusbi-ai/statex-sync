@@ -92,7 +92,8 @@ def download_csv(file_url):
 # ── Step 2: Upsert rows into Supabase ────────────────────────────────────────
 
 def upsert_rows(rows):
-    url = f"{SUPABASE_URL}/rest/v1/{TABLE}"
+    # Upsert on creative_id, not the table's own auto-incrementing id
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE}?on_conflict=creative_id"
     headers = supabase_headers({
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
@@ -121,7 +122,7 @@ def main():
                 continue
 
             rows.append({
-                "id":            creative_id,
+                "creative_id":   creative_id,
                 "brand":         row.get("brand", "").strip(),
                 "link_to_image": link,
                 "image_url":     None,  # skipped for now
